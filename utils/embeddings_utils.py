@@ -1,17 +1,22 @@
-import numpy as np
-import faiss
 from sentence_transformers import SentenceTransformer
+import faiss
+import numpy as np
 
-model = SentenceTransformer("all-MiniLM-L6-v2")
+model = SentenceTransformer('all-MiniLM-L6-v2')
 
-def create_embeddings(text):
-    chunks = [text[i:i+500] for i in range(0, len(text), 500)]
-    vectors = model.encode(chunks)
-    return chunks, vectors
+embedding_dim = 384  # for all-MiniLM-L6-v2
+index = faiss.IndexFlatL2(embedding_dim)
+corpus_texts = []
+corpus_embeddings = []
 
-def search_in_embeddings(query, stored_chunks, stored_vectors):
-    q_vec = model.encode([query])
-    index = faiss.IndexFlatL2(stored_vectors.shape[1])
-    index.add(stored_vectors)
-    D, I = index.search(q_vec, k=1)
-    return stored_chunks[I[0][0]]
+def add_document(text):
+    embedding = model.encode([text])
+    corpus_texts.append(text)
+    corpus_embeddings.append(embedding)
+    index.add(embedding)
+
+def search(query, top_k=3):
+    query_embedding = model.encode([query])
+    distances, indices = index.search(query_embedding, top_k)
+    results = [corpus_texts[i] for i in indices[0] if i < len(corpus_texts)]
+    return results

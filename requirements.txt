@@ -7,4 +7,4 @@ python-multipart
 PyPDF2
 sentence-transformers
 faiss-cpu
-numpy
+aiofiles

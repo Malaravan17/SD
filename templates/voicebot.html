@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Voice Assistant</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <style>
+    body {
+      font-family: "Poppins", sans-serif;
+      background: linear-gradient(135deg, #1e1e2f, #2a2a40);
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      height: 100vh;
+      margin: 0;
+    }
+
+    h1 {
+      color: #00b4d8;
+      margin-bottom: 15px;
+    }
+
+    #queryBox {
+      width: 70%;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      outline: none;
+      font-size: 16px;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    #speakBtn {
+      background-color: #00b4d8;
+      color: white;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 30px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    #speakBtn:hover {
+      background-color: #0096c7;
+    }
+
+    #answerBox {
+      width: 70%;
+      background: #2d2d44;
+      margin-top: 20px;
+      border-radius: 12px;
+      padding: 20px;
+      min-height: 100px;
+      box-shadow: 0 0 10px rgba(0, 180, 216, 0.3);
+      text-align: left;
+      overflow-y: auto;
+    }
+
+    .listening {
+      background-color: #ff6b6b !important;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(255,107,107,0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(255,107,107,0); }
+      100% { box-shadow: 0 0 0 0 rgba(255,107,107,0); }
+    }
+  </style>
+</head>
+<body>
+  <h1>🎙️ AI Voice Assistant</h1>
+  <input id="queryBox" placeholder="Type your question or use mic..." />
+  <button id="speakBtn">🎤 Speak</button>
+  <div id="answerBox">Answer will appear here...</div>
+
+  <script>
+    const speakBtn = document.getElementById('speakBtn');
+    const queryBox = document.getElementById('queryBox');
+    const answerBox = document.getElementById('answerBox');
+
+    // --- Voice Recognition ---
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      speakBtn.classList.add("listening");
+      speakBtn.textContent = "🎧 Listening...";
+    };
+
+    recognition.onend = () => {
+      speakBtn.classList.remove("listening");
+      speakBtn.textContent = "🎤 Speak";
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      queryBox.value = transcript;
+      sendQuery(transcript);
+    };
+
+    speakBtn.onclick = () => {
+      if (speakBtn.classList.contains("listening")) {
+        recognition.stop();
+      } else {
+        recognition.start();
+      }
+    };
+
+    // --- Send query to backend ---
+    async function sendQuery(query) {
+      answerBox.innerHTML = "🤔 Thinking...";
+      const formData = new FormData();
+      formData.append("query", query);
+
+      const response = await fetch("/ask", {
+        method: "POST",
+        body: formData
+      });
+      const data = await response.json();
+      const answer = data.answer;
+      answerBox.innerHTML = `<b>Q:</b> ${query}<br><br><b>A:</b> ${answer}`;
+      speakOut(answer);
+    }
+
+    // --- Text-to-Speech Output ---
+    function speakOut(text) {
+      const synth = window.speechSynthesis;
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "en-US";
+      utter.rate = 1.0;
+      synth.speak(utter);
+    }
+  </script>
+</body>
+</html>
