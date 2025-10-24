@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Student Voice Dashboard</title>
+</head>
+<body>
+  <h2>Student Dashboard</h2>
+  <form id="queryForm" method="post">
+    <input type="text" id="query" placeholder="Ask a question...">
+    <button type="button" onclick="askQuery()">Ask</button>
+  </form>
+  <p id="answer"></p>
+
+  <script>
+    async function askQuery() {
+      const query = document.getElementById("query").value;
+      const formData = new FormData();
+      formData.append("query", query);
+
+      const res = await fetch("/query", {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+      document.getElementById("answer").innerText = data.answer;
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head><title>Admin Dashboard</title></head>
+<body>
+  <h2>Welcome Admin</h2>
+  <form action="/upload" method="post" enctype="multipart/form-data">
+    <input type="file" name="file" required>
+    <button type="submit">Upload PDF</button>
+  </form>
+  <p>After uploading, check your FastAPI terminal for upload status.</p>
+</body>
+</html>
