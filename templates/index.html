@@ -1,11 +1,16 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>AI Voice Dashboard</title>
+  <meta charset="UTF-8">
+  <title>AI Dashboard Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h2>Welcome!</h2>
-  <button onclick="location.href='/admin'">Admin</button>
-  <button onclick="location.href='/student'">Student</button>
+<body class="bg-gradient-to-br from-indigo-500 to-purple-700 flex items-center justify-center h-screen text-white">
+  <div class="text-center p-10 bg-white rounded-3xl shadow-2xl text-gray-800 w-96">
+    <h1 class="text-3xl font-bold mb-6 text-indigo-700">AI Dashboard</h1>
+    <p class="mb-8 text-gray-500">Choose your role to continue</p>
+    <a href="/admin" class="block bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg mb-4 transition">Admin</a>
+    <a href="/login" class="block bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg transition">Student</a>
+  </div>
 </body>
 </html>

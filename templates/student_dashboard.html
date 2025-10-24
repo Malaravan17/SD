@@ -1,29 +1,57 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
   <title>Student Voice Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <h2>Student Dashboard</h2>
-  <form id="queryForm" method="post">
-    <input type="text" id="query" placeholder="Ask a question...">
-    <button type="button" onclick="askQuery()">Ask</button>
-  </form>
-  <p id="answer"></p>
+<body class="bg-gradient-to-br from-indigo-500 to-purple-700 min-h-screen flex flex-col items-center justify-center text-white text-center">
+  <div class="bg-white text-gray-800 rounded-3xl shadow-2xl p-10 w-3/4 max-w-2xl">
+    <h1 class="text-3xl font-bold text-indigo-700 mb-6">AI Voice Assistant</h1>
+    <p class="text-gray-500 mb-6">Ask me about the timetable or handbook!</p>
+
+    <button id="startBtn" class="bg-indigo-600 text-white py-3 px-6 rounded-lg hover:bg-indigo-700 transition">
+      🎤 Start Speaking
+    </button>
+
+    <div id="result" class="mt-6 text-lg text-gray-800"></div>
+  </div>
 
   <script>
-    async function askQuery() {
-      const query = document.getElementById("query").value;
-      const formData = new FormData();
-      formData.append("query", query);
+    const startBtn = document.getElementById("startBtn");
+    const resultDiv = document.getElementById("result");
 
-      const res = await fetch("/query", {
-        method: "POST",
-        body: formData
-      });
-      const data = await res.json();
-      document.getElementById("answer").innerText = data.answer;
+    const synth = window.speechSynthesis;
+
+    function speak(text) {
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "en-IN";
+      synth.speak(utter);
     }
+
+    startBtn.addEventListener("click", () => {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = "en-IN";
+      recognition.start();
+
+      recognition.onresult = async (event) => {
+        const query = event.results[0][0].transcript;
+        resultDiv.innerHTML = `<b>You:</b> ${query}`;
+
+        const response = await fetch("/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query })
+        });
+
+        const data = await response.json();
+        const answer = data.answer || "Sorry, I couldn't find the answer.";
+        resultDiv.innerHTML += `<br><b>AI:</b> ${answer}`;
+        speak(answer);
+      };
+
+      recognition.onerror = (err) => alert("Voice recognition error: " + err.error);
+    });
   </script>
 </body>
 </html>

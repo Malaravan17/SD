@@ -1,12 +1,27 @@
 <!DOCTYPE html>
-<html>
-<head><title>Admin Dashboard</title></head>
-<body>
-  <h2>Welcome Admin</h2>
-  <form action="/upload" method="post" enctype="multipart/form-data">
-    <input type="file" name="file" required>
-    <button type="submit">Upload PDF</button>
-  </form>
-  <p>After uploading, check your FastAPI terminal for upload status.</p>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-10">
+  <div class="max-w-4xl mx-auto bg-white rounded-3xl shadow-2xl p-8">
+    <h1 class="text-3xl font-bold text-indigo-700 mb-6">Admin Dashboard</h1>
+
+    <form action="/upload_pdf" method="post" enctype="multipart/form-data" class="space-y-4">
+      <input type="file" name="pdf_file" accept="application/pdf" class="border p-3 w-full rounded-lg">
+      <button type="submit" class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition">Upload PDF</button>
+    </form>
+
+    <div class="mt-10">
+      <h2 class="text-2xl font-semibold text-gray-700 mb-4">Uploaded PDFs</h2>
+      <ul class="list-disc list-inside text-gray-600">
+        {% for pdf in pdfs %}
+          <li>{{ pdf }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
 </body>
 </html>
