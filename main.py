@@ -10,6 +10,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 import numpy as np
 import re
 import pickle
+import pandas as pd
 
 # ---------------- CONFIG ----------------
 STUDENT_CREDENTIALS = {
@@ -63,8 +64,7 @@ def save_faiss_index():
         pickle.dump(metadata, f)
     print("[INFO] FAISS index and metadata saved successfully.")
 
-
-# ---------------- PDF FUNCTIONS ----------------
+# ---------------- PDF / EXCEL FUNCTIONS ----------------
 def pdf_to_chunks(pdf_path, chunk_size=400, overlap=100):
     chunks = []
     with open(pdf_path, 'rb') as f:
@@ -78,22 +78,17 @@ def pdf_to_chunks(pdf_path, chunk_size=400, overlap=100):
                     chunks.append(chunk)
     return chunks
 
-def embed_pdf(pdf_path):
-    chunks = pdf_to_chunks(pdf_path)
+def embed_chunks(chunks, source_file):
     if not chunks:
-        print(f"[WARN] No text found in {pdf_path}")
+        print(f"[WARN] No text found in {source_file}")
         return
-
     vectors = embedding_model.encode(chunks, convert_to_numpy=True)
-    
-    # Ensure vectors are 2D (num_chunks x embedding_dim)
     if len(vectors.shape) == 1:
         vectors = np.expand_dims(vectors, axis=0)
-    
     index.add(vectors)
-    metadata.extend([(pdf_path, c) for c in chunks])
+    metadata.extend([(source_file, c) for c in chunks])
     save_faiss_index()
-    print(f"[INFO] Embedded {len(chunks)} chunks from {pdf_path}")
+    print(f"[INFO] Embedded {len(chunks)} chunks from {source_file}")
 
 # ---------------- SEARCH + QA ----------------
 def semantic_search(query, top_k=5):
@@ -122,7 +117,6 @@ Answer:
 # ---------------- ROUTES ----------------
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    # Ask user to choose Admin or Student
     return templates.TemplateResponse("index.html", {"request": request})
 
 # --- Admin Login ---
@@ -141,12 +135,34 @@ def admin_dashboard(request: Request):
     files = os.listdir(UPLOAD_DIR)
     return templates.TemplateResponse("admin_dashboard.html", {"request": request, "files": files})
 
-@app.post("/upload_pdf")
-async def upload_pdf(file: UploadFile = File(...)):
+# --- Upload PDF / Excel ---
+@app.post("/upload_file")
+async def upload_file(file: UploadFile = File(...)):
     save_path = os.path.join(UPLOAD_DIR, file.filename)
+    
     with open(save_path, "wb") as f:
         f.write(await file.read())
-    embed_pdf(save_path)
+
+    # PDF
+    if file.filename.lower().endswith(".pdf"):
+        chunks = pdf_to_chunks(save_path)
+        embed_chunks(chunks, save_path)
+
+    # Excel
+    elif file.filename.lower().endswith(".xlsx"):
+       df = pd.read_excel(save_path)
+       chunks = []
+       for row in df.values:
+        for cell in row:
+         if str(cell).strip():  # skip empty cells
+            chunks.append(str(cell))
+
+       embed_chunks(chunks, save_path)
+
+
+    else:
+        return JSONResponse({"error": "Unsupported file type. Only PDF or Excel allowed."})
+
     return RedirectResponse(url="/admin_dashboard", status_code=302)
 
 # --- Student Login ---

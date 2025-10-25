@@ -1,19 +1,23 @@
 <!DOCTYPE html>
 <html>
-<head><title>Admin Dashboard</title></head>
+<head>
+    <title>Admin Dashboard</title>
+</head>
 <body>
- <h2>Admin Dashboard</h2>
- <form action="/upload_pdf" method="post" enctype="multipart/form-data">
-  <input type="file" name="file" required>
-  <button type="submit">Upload PDF</button>
- </form>
+    <h2>Admin Dashboard</h2>
 
-<h3>Uploaded Files</h3>
-<ul>
-  {% for f in files %}
-  <li>{{f}}</li>
-  {% endfor %}
-</ul>
+    <!-- Upload Form (PDF or Excel) -->
+    <form action="/upload_file" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" required>
+        <button type="submit">Upload Document</button>
+    </form>
+
+    <h3>Uploaded Files</h3>
+    <ul>
+      {% for f in files %}
+      <li>{{ f }}</li>
+      {% endfor %}
+    </ul>
 
 </body>
 </html>
