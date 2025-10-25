@@ -2,81 +2,154 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Voice Assistant</title>
-  <link rel="stylesheet" href="/static/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
   <style>
     body {
       font-family: "Poppins", sans-serif;
       background: linear-gradient(135deg, #1e1e2f, #2a2a40);
       color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      height: 100vh;
       margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      padding-top: 80px;
+    }
+
+    /* Back button at top-left */
+    .back-btn {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      font-size: 20px;
+      color: white;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 8px 14px;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: 0.3s;
+      display: flex;
+      align-items: center;
+    }
+    .back-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+      color: #00b4d8;
+    }
+    .back-btn span {
+      margin-left: 5px;
+      font-weight: 600;
     }
 
     h1 {
       color: #00b4d8;
-      margin-bottom: 15px;
+      margin-bottom: 30px;
+      text-align: center;
+      text-shadow: 0 0 10px #00b4d8;
+    }
+
+    .voice-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 30px;
+      width: 90%;
+      max-width: 600px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transition: 0.3s;
     }
 
     #queryBox {
-      width: 70%;
-      padding: 12px;
-      border-radius: 8px;
+      width: 100%;
+      padding: 15px;
+      border-radius: 12px;
       border: none;
       outline: none;
       font-size: 16px;
-      margin-bottom: 15px;
+      margin-bottom: 20px;
       text-align: center;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      transition: 0.3s;
+    }
+    #queryBox:focus {
+      background: rgba(0, 180, 216, 0.15);
+      box-shadow: 0 0 10px #00b4d8;
     }
 
     #speakBtn {
       background-color: #00b4d8;
       color: white;
-      padding: 12px 20px;
+      padding: 14px 30px;
       border: none;
       border-radius: 30px;
       font-size: 16px;
       cursor: pointer;
       transition: 0.3s;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
     }
-
     #speakBtn:hover {
       background-color: #0096c7;
+      transform: scale(1.05);
     }
-
-    #answerBox {
-      width: 70%;
-      background: #2d2d44;
-      margin-top: 20px;
-      border-radius: 12px;
-      padding: 20px;
-      min-height: 100px;
-      box-shadow: 0 0 10px rgba(0, 180, 216, 0.3);
-      text-align: left;
-      overflow-y: auto;
-    }
-
-    .listening {
-      background-color: #ff6b6b !important;
+    #speakBtn.listening {
+      background-color: #ff6b6b;
       animation: pulse 1s infinite;
     }
 
     @keyframes pulse {
       0% { box-shadow: 0 0 0 0 rgba(255,107,107,0.4); }
-      70% { box-shadow: 0 0 0 10px rgba(255,107,107,0); }
+      70% { box-shadow: 0 0 0 15px rgba(255,107,107,0); }
       100% { box-shadow: 0 0 0 0 rgba(255,107,107,0); }
     }
+
+    #answerBox {
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      padding: 20px;
+      border-radius: 16px;
+      min-height: 120px;
+      overflow-y: auto;
+      text-align: left;
+      box-shadow: inset 0 0 10px rgba(0,180,216,0.2);
+      line-height: 1.6;
+      font-size: 15px;
+      transition: 0.3s;
+    }
+
+    /* Scrollbar style */
+    #answerBox::-webkit-scrollbar {
+      width: 8px;
+    }
+    #answerBox::-webkit-scrollbar-thumb {
+      background: #00b4d8;
+      border-radius: 4px;
+    }
+    #answerBox::-webkit-scrollbar-track {
+      background: rgba(255,255,255,0.05);
+    }
+
   </style>
 </head>
 <body>
+
+  <!-- Back button -->
+  <a href="/" class="back-btn">&#8592;<span>Back</span></a>
+
   <h1>🎙️ AI Voice Assistant</h1>
-  <input id="queryBox" placeholder="Type your question or use mic..." />
-  <button id="speakBtn">🎤 Speak</button>
-  <div id="answerBox">Answer will appear here...</div>
+
+  <div class="voice-card">
+    <input id="queryBox" placeholder="Type your question or use mic..." />
+    <button id="speakBtn">🎤 Speak</button>
+    <div id="answerBox">Answer will appear here...</div>
+  </div>
 
   <script>
     const speakBtn = document.getElementById('speakBtn');
@@ -120,14 +193,18 @@
       const formData = new FormData();
       formData.append("query", query);
 
-      const response = await fetch("/ask", {
-        method: "POST",
-        body: formData
-      });
-      const data = await response.json();
-      const answer = data.answer;
-      answerBox.innerHTML = `<b>Q:</b> ${query}<br><br><b>A:</b> ${answer}`;
-      speakOut(answer);
+      try {
+        const response = await fetch("/ask", {
+          method: "POST",
+          body: formData
+        });
+        const data = await response.json();
+        const answer = data.answer;
+        answerBox.innerHTML = `<b>Q:</b> ${query}<br><br><b>A:</b> ${answer}`;
+        speakOut(answer);
+      } catch (err) {
+        answerBox.innerHTML = "❌ Error contacting server.";
+      }
     }
 
     // --- Text-to-Speech Output ---
@@ -139,5 +216,6 @@
       synth.speak(utter);
     }
   </script>
+
 </body>
 </html>

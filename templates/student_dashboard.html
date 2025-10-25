@@ -1,20 +1,84 @@
 <!DOCTYPE html>
-<html>
-<head><title>Student Dashboard</title></head>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Student Login</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+body { font-family: Arial, sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#1e1e2f; color:#fff; }
+.login-card { background: rgba(255,255,255,0.1); padding: 40px; border-radius: 15px; text-align:center; backdrop-filter:blur(10px); }
+input { width: 250px; padding:10px; margin:10px 0; border-radius:5px; border:none; }
+button { width: 270px; padding:10px; margin-top:10px; border-radius:5px; border:none; background:#6a5acd; color:white; cursor:pointer; }
+button:hover { background:#5c4bcf; }
+.error { color:red; margin-top:10px; }
+.divider { margin:20px 0; }
+</style>
+</head>
 <body>
-    <h2>Student Dashboard</h2>
-    <form action="/query_pdf" method="post">
-        Ask about PDF: <input type="text" name="query" required>
-        <input type="submit" value="Search">
+
+<div class="login-card">
+    <h2>Student Login</h2>
+    <form method="post" action="/student_login">
+        <input type="text" name="email" placeholder="Email" required><br>
+        <input type="password" name="password" placeholder="Password" required><br>
+        <button type="submit">Login</button>
     </form>
 
-    {% if results %}
-        <h3>Results:</h3>
-        <ul>
-            {% for res in results %}
-                <li>{{ res }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
+    <div class="divider">or</div>
+
+    <!-- Google Sign-In -->
+    <div id="g_id_onload"
+         data-client_id="YOUR_GOOGLE_CLIENT_ID_HERE"
+         data-context="signin"
+         data-ux_mode="popup"
+         data-callback="handleCredentialResponse"
+         data-auto_prompt="false">
+    </div>
+
+    <div class="g_id_signin"
+         data-type="standard"
+         data-shape="rectangular"
+         data-theme="outline"
+         data-text="signin_with"
+         data-size="large"
+         data-logo_alignment="left">
+    </div>
+
+    <p class="error">{{error}}</p>
+</div>
+
+<script>
+function parseJwt(token) {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c){
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+}
+
+function handleCredentialResponse(response) {
+    const data = parseJwt(response.credential);
+    const email = data.email;
+
+    if(email.endsWith("@bitsathy.ac.in")) {
+        fetch('/google_login', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({email})
+        }).then(res => res.json())
+          .then(data => {
+              if(data.redirect) {
+                  window.location.href = data.redirect;
+              }
+          });
+    } else {
+        alert("❌ Only @bitsathy.ac.in emails allowed");
+        google.accounts.id.disableAutoSelect();
+    }
+}
+</script>
+
 </body>
 </html>
