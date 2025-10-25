@@ -14,6 +14,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 from sentence_transformers import SentenceTransformer
 from database import get_db
 from models import StudentLogin
+import torch
 
 # ---------------- CONFIG ----------------
 ADMIN_EMAIL = "nataraj@bitsathy.ac.in"
@@ -30,11 +31,16 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# ---------------- DEVICE SETUP ----------------
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"[INFO] Using device: {device}")
+
 # ---------------- MODELS ----------------
-embedding_model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
+embedding_model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2", device=device)
+
 tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-large")
-model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-large")
-qa_model = pipeline("text2text-generation", model=model, tokenizer=tokenizer)
+model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-large").to(device)
+qa_model = pipeline("text2text-generation", model=model, tokenizer=tokenizer, device=0 if device=="cuda" else -1)
 
 # ---------------- FAISS SETUP ----------------
 def load_faiss_index():
@@ -75,10 +81,6 @@ def pdf_to_chunks(pdf_path, chunk_size=400, overlap=100):
     return chunks
 
 def embed_chunks(chunks, source_file):
-    """
-    Embed a list of text chunks and add to FAISS index & metadata.
-    source_file should be the absolute or relative path used for matching on delete.
-    """
     global index, metadata
     if not chunks:
         print(f"[WARN] No text found in {source_file}")
@@ -91,30 +93,20 @@ def embed_chunks(chunks, source_file):
     save_faiss_index()
     print(f"[INFO] Embedded {len(chunks)} chunks from {source_file}")
 
-# ---------------- Delete embeddings helper ----------------
+# ---------------- DELETE EMBEDDINGS ----------------
 def delete_embeddings_for(filename):
-    """
-    Remove all metadata entries and their vectors that came from `filename`.
-    We do this by rebuilding the FAISS index from the remaining metadata entries.
-    filename should be the full path used when embedding (e.g. os.path.join(UPLOAD_DIR, file))
-    """
     global index, metadata, embedding_model
-
-    # Filter metadata to remove entries for this file
     remaining = [m for m in metadata if m[0] != filename]
     removed_count = len(metadata) - len(remaining)
     if removed_count == 0:
         print(f"[INFO] No embeddings found for {filename} (nothing to delete).")
         return
 
-    # Rebuild index from remaining chunks
     print(f"[INFO] Rebuilding FAISS index after removing {removed_count} chunks for {filename} ...")
     dimension = 768
     new_index = faiss.IndexFlatL2(dimension)
-    # extract chunk texts
     remaining_chunks = [m[1] for m in remaining]
     if remaining_chunks:
-        # encode in batches to avoid memory spikes
         batch_size = 256
         all_vectors = []
         for i in range(0, len(remaining_chunks), batch_size):
@@ -125,7 +117,6 @@ def delete_embeddings_for(filename):
             all_vectors.append(vecs)
         all_vectors = np.vstack(all_vectors)
         new_index.add(all_vectors)
-    # replace global index and metadata
     index = new_index
     metadata = remaining
     save_faiss_index()
@@ -156,7 +147,6 @@ Answer:
     return re.sub(r"(?<=[.!?])\s+", "\n", answer.strip())
 
 # ---------------- ROUTES ----------------
-
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -178,34 +168,17 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db)):
     files = os.listdir(UPLOAD_DIR)
     logins = db.query(StudentLogin).all()
     today = date.today()
-
-    # login_counts: { email: {count: int, last_login: iso_utc_string_or_NA } }
     login_counts = defaultdict(lambda: {"count": 0, "last_login": "N/A"})
     for login in logins:
-        try:
-            ts = login.timestamp  # assuming a datetime object
-            # If timestamp is naive, treat it as local server timezone and convert to UTC
-            if ts.tzinfo is None:
-                local_tz = datetime.now().astimezone().tzinfo
-                ts = ts.replace(tzinfo=local_tz)
-            ts_date = ts.date()
-        except Exception:
-            continue
-
-        if ts_date == today:
+        ts = login.timestamp
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=datetime.now().astimezone().tzinfo)
+        if ts.date() == today:
             login_counts[login.email]["count"] += 1
-            # provide last_login as UTC ISO string (frontend will convert to IST)
-            last_login_utc = ts.astimezone(timezone.utc).isoformat()
-            login_counts[login.email]["last_login"] = last_login_utc
-
+            login_counts[login.email]["last_login"] = ts.astimezone(timezone.utc).isoformat()
     return templates.TemplateResponse(
         "admin_dashboard.html",
-        {
-            "request": request,
-            "files": files,
-            "login_counts": login_counts,
-            "year": datetime.now().year
-        }
+        {"request": request, "files": files, "login_counts": login_counts, "year": datetime.now().year}
     )
 
 # ---------------- FILE UPLOAD ----------------
@@ -230,24 +203,13 @@ async def upload_file(file: UploadFile = File(...)):
 # ---------------- DELETE FILE ----------------
 @app.post("/delete_file")
 def delete_file(request: Request, filename: str = Form(...)):
-    """
-    Deletes the uploaded file and removes its embeddings from the FAISS store.
-    Expecting `filename` (base filename as shown in the UI).
-    """
     file_path = os.path.join(UPLOAD_DIR, filename)
     if os.path.exists(file_path):
         try:
             os.remove(file_path)
-            # Remove embeddings associated with this file path
             delete_embeddings_for(file_path)
-            print(f"[INFO] Deleted file {file_path} and its embeddings.")
         except Exception as e:
-            print(f"[ERROR] Failed to delete file or embeddings: {e}")
-            # you might want to return an error response here
             return JSONResponse({"error": f"Failed to delete: {str(e)}"}, status_code=500)
-    else:
-        print(f"[WARN] File not found: {file_path}")
-
     return RedirectResponse(url="/admin_dashboard", status_code=302)
 
 # ---------------- STUDENT LOGIN ----------------
@@ -274,9 +236,7 @@ def ask_question(query: str = Form(...)):
     context, distance = semantic_search(query)
     threshold = 1.5
     if distance > threshold:
-        return JSONResponse({
-            "answer": "The information you requested is not available. Please contact +91 9342236331 for assistance."
-        })
+        return JSONResponse({"answer": "The information you requested is not available. Please contact +91 9342236331 for assistance."})
     return JSONResponse({"answer": ask_model(context, query)})
 
 # ---------------- RUN ----------------
