@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Form, UploadFile, File
+from fastapi import FastAPI, Request, Form, UploadFile, File, Depends
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -11,6 +11,9 @@ import numpy as np
 import re
 import pickle
 import pandas as pd
+from sqlalchemy.orm import Session
+from database import get_db
+from models import StudentLogin
 
 # ---------------- CONFIG ----------------
 STUDENT_CREDENTIALS = {
@@ -125,15 +128,26 @@ def admin_login_page(request: Request):
     return templates.TemplateResponse("login_admin.html", {"request": request, "error": ""})
 
 @app.post("/admin_login")
-def admin_login(request: Request, email: str = Form(...), password: str = Form(...)):
+def admin_login(request: Request, email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     if email == ADMIN_EMAIL and password == ADMIN_PASSWORD:
-        return RedirectResponse(url="/admin_dashboard", status_code=302)
+        # Directly show admin dashboard with files + student logins
+        files = os.listdir(UPLOAD_DIR)
+        logins = db.query(StudentLogin).order_by(StudentLogin.timestamp.desc()).all()
+        return templates.TemplateResponse(
+            "admin_dashboard.html",
+            {"request": request, "files": files, "logins": logins}
+        )
     return templates.TemplateResponse("login_admin.html", {"request": request, "error": "Invalid credentials"})
 
+# --- Admin Dashboard GET (optional) ---
 @app.get("/admin_dashboard", response_class=HTMLResponse)
-def admin_dashboard(request: Request):
+def admin_dashboard(request: Request, db: Session = Depends(get_db)):
     files = os.listdir(UPLOAD_DIR)
-    return templates.TemplateResponse("admin_dashboard.html", {"request": request, "files": files})
+    logins = db.query(StudentLogin).order_by(StudentLogin.timestamp.desc()).all()
+    return templates.TemplateResponse(
+        "admin_dashboard.html",
+        {"request": request, "files": files, "logins": logins}
+    )
 
 # --- Upload PDF / Excel ---
 @app.post("/upload_file")
@@ -153,12 +167,10 @@ async def upload_file(file: UploadFile = File(...)):
        df = pd.read_excel(save_path)
        chunks = []
        for row in df.values:
-        for cell in row:
-         if str(cell).strip():  # skip empty cells
-            chunks.append(str(cell))
-
+           for cell in row:
+               if str(cell).strip():
+                   chunks.append(str(cell))
        embed_chunks(chunks, save_path)
-
 
     else:
         return JSONResponse({"error": "Unsupported file type. Only PDF or Excel allowed."})
@@ -171,8 +183,17 @@ def student_login_page(request: Request):
     return templates.TemplateResponse("login_student.html", {"request": request, "error": ""})
 
 @app.post("/student_login")
-def student_login(request: Request, email: str = Form(...), password: str = Form(...)):
+def student_login(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
     if email in STUDENT_CREDENTIALS and STUDENT_CREDENTIALS[email] == password:
+        # Save login in DB
+        login_entry = StudentLogin(email=email)
+        db.add(login_entry)
+        db.commit()
         return RedirectResponse(url="/voicebot", status_code=302)
     return templates.TemplateResponse("login_student.html", {"request": request, "error": "Invalid credentials"})
 

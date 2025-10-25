@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy.sql import func
 from database import Base
 
 class User(Base):
@@ -13,3 +14,9 @@ class File(Base):
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, unique=True)
     filepath = Column(String)
+
+class StudentLogin(Base):
+    __tablename__ = "student_logins"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, index=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())

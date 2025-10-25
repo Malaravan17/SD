@@ -4,20 +4,29 @@
     <title>Admin Dashboard</title>
 </head>
 <body>
-    <h2>Admin Dashboard</h2>
+    <h2>Uploaded Files</h2>
+<ul>
+    {% for file in files %}
+    <li>{{ file }}</li>
+    {% endfor %}
+</ul>
 
-    <!-- Upload Form (PDF or Excel) -->
-    <form action="/upload_file" method="post" enctype="multipart/form-data">
-        <input type="file" name="file" required>
-        <button type="submit">Upload Document</button>
-    </form>
+<h2>Student Login History</h2>
+<table border="1">
+    <tr>
+        <th>ID</th>
+        <th>Email</th>
+        <th>Timestamp</th>
+    </tr>
+    {% for login in logins %}
+    <tr>
+        <td>{{ login.id }}</td>
+        <td>{{ login.email }}</td>
+        <td>{{ login.timestamp }}</td>
+    </tr>
+    {% endfor %}
+</table>
 
-    <h3>Uploaded Files</h3>
-    <ul>
-      {% for f in files %}
-      <li>{{ f }}</li>
-      {% endfor %}
-    </ul>
 
 </body>
 </html>
