@@ -10,11 +10,11 @@ import faiss
 from datetime import datetime, date, timezone
 from collections import defaultdict
 from sqlalchemy.orm import Session
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
 from sentence_transformers import SentenceTransformer
 from database import get_db
 from models import StudentLogin
 import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 
 # ---------------- CONFIG ----------------
 ADMIN_EMAIL = "nataraj@bitsathy.ac.in"
@@ -36,11 +36,23 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"[INFO] Using device: {device}")
 
 # ---------------- MODELS ----------------
+# Embedding model
 embedding_model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2", device=device)
 
-tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-large")
-model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-large").to(device)
-qa_model = pipeline("text2text-generation", model=model, tokenizer=tokenizer, device=0 if device=="cuda" else -1)
+# LLaMA 3.1 for answer generation
+tokenizer = AutoTokenizer.from_pretrained(
+    "meta-llama/Llama-3-7b-hf",
+    use_auth_token=True
+)
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Llama-3-7b-hf",
+    device_map="auto",
+    torch_dtype=torch.float16,
+    use_auth_token=True
+)
+
+qa_model = pipeline("text-generation", model=model, tokenizer=tokenizer,
+                    device=0 if device=="cuda" else -1)
 
 # ---------------- FAISS SETUP ----------------
 def load_faiss_index():
@@ -95,7 +107,7 @@ def embed_chunks(chunks, source_file):
 
 # ---------------- DELETE EMBEDDINGS ----------------
 def delete_embeddings_for(filename):
-    global index, metadata, embedding_model
+    global index, metadata
     remaining = [m for m in metadata if m[0] != filename]
     removed_count = len(metadata) - len(remaining)
     if removed_count == 0:
@@ -142,9 +154,9 @@ Question: {question}
 
 Answer:
 """
-    result = qa_model(prompt, max_new_tokens=150, do_sample=False, temperature=0.1)
+    result = qa_model(prompt, max_new_tokens=250, do_sample=True, temperature=0.7)
     answer = result[0]["generated_text"]
-    return re.sub(r"(?<=[.!?])\s+", "\n", answer.strip())
+    return answer.strip()
 
 # ---------------- ROUTES ----------------
 @app.get("/", response_class=HTMLResponse)
