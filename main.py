@@ -13,12 +13,12 @@ import pickle
 
 # ---------------- CONFIG ----------------
 STUDENT_CREDENTIALS = {
-    "Malaravanee.cs24@bitsathy.ac.in": "123456",
-    "Rishithav.cs24@bitsathy.ac.in": "123456",
-    "Amirthae.cs24@bitsathy.ac.in": "123456",
-    "Kavinkumart.cs24@bitsathy.ac.in": "123456"
+    "malaravanee.cs24@bitsathy.ac.in": "123456",
+    "rishithav.cs24@bitsathy.ac.in": "123456",
+    "amirthae.cs24@bitsathy.ac.in": "123456",
+    "kavinkumart.cs24@bitsathy.ac.in": "123456"
 }
-ADMIN_EMAIL = "Nataraj@bitsathy.ac.in"
+ADMIN_EMAIL = "nataraj@bitsathy.ac.in"
 ADMIN_PASSWORD = "123456"
 
 UPLOAD_DIR = "static/uploads"
@@ -170,7 +170,7 @@ def ask_question(query: str = Form(...)):
     context, distance = semantic_search(query)
     threshold = 1.5
     if distance > threshold:
-        return JSONResponse({'answer': "Sorry, I couldn’t find that in the uploaded documents. Please contact your admin."})
+        return JSONResponse({'answer': "The information you requested is not available..Better call +91 9342236331 for further assistance."})
     return JSONResponse({'answer': ask_model(context, query)})
 
 # ---------------- RUN ----------------
